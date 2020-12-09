@@ -18,21 +18,22 @@ class SampleAdapter : ListAdapter<SampleAdapterItem, RecyclerView.ViewHolder>(DI
         setHasStableIds(true)
     }
 
-    override fun getItemViewType(position: Int): Int {
-        // TODO get ItemViewType
-        return super.getItemViewType(position)
+    override fun getItemViewType(position: Int): Int = when (getItem(position)) {
+        is SampleAdapterItem.Text -> VIEW_TYPE_TEXT
+        is SampleAdapterItem.Image -> VIEW_TYPE_IMAGE
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        // TODO Create ViewHolder
-        return TextViewHolder(parent.inflate(viewType))
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
+        when (viewType) {
+            VIEW_TYPE_IMAGE -> ImageViewHolder(parent.inflate(viewType))
+            else -> TextViewHolder(parent.inflate(viewType))
+        }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val item = getItem(position)
         when (holder) {
-            is ImageViewHolder -> holder.bind(item)
-            is TextViewHolder -> holder.bind(item)
+            is ImageViewHolder -> (item as? SampleAdapterItem.Image)?.let { holder.bind(it) }
+            is TextViewHolder -> (item as? SampleAdapterItem.Text)?.let { holder.bind(it) }
             else -> Log.e(TAG, "bind unknown type view holder")
         }
     }
@@ -42,30 +43,31 @@ class SampleAdapter : ListAdapter<SampleAdapterItem, RecyclerView.ViewHolder>(DI
         position: Int,
         payloads: MutableList<Any>
     ) {
-        if(position !in 0 until itemCount) return
+        if (position !in 0 until itemCount) return
         val item = getItem(position) ?: return
 
-        if(payloads.isEmpty()) {
+        if (payloads.isEmpty()) {
             onBindViewHolder(holder, position)
         } else {
             payloads.forEach {
-                when (it) {
-                    PAYLOAD_TEXT_CHANGED -> (holder as? TextViewHolder)?.bind(item)
-                    PAYLOAD_IMAGE_CHANGED -> (holder as? ImageViewHolder)?.bind(item)
+                when {
+                    it == PAYLOAD_TEXT_CHANGED && item is SampleAdapterItem.Text ->
+                        (holder as? TextViewHolder)?.bind(item)
+                    it == PAYLOAD_IMAGE_CHANGED && item is SampleAdapterItem.Image ->
+                        (holder as? ImageViewHolder)?.bind(item)
                 }
             }
         }
     }
 
-    private fun ImageViewHolder.bind(item: SampleAdapterItem) {
-        // TODO bind image
+    private fun ImageViewHolder.bind(item: SampleAdapterItem.Image) {
         Glide.with(itemView)
-//            .load(item.imageUrl)
-//            .into(imageView)
+            .load(item.imageUrl)
+            .into(imageView)
     }
 
-    private fun TextViewHolder.bind(item: SampleAdapterItem) {
-//        textView.text = item.text
+    private fun TextViewHolder.bind(item: SampleAdapterItem.Text) {
+        textView.text = item.text
     }
 
     private class ImageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -90,15 +92,29 @@ class SampleAdapter : ListAdapter<SampleAdapterItem, RecyclerView.ViewHolder>(DI
                 override fun areItemsTheSame(
                     oldItem: SampleAdapterItem,
                     newItem: SampleAdapterItem
-                ): Boolean {
-                    TODO("Not yet implemented")
-                }
+                ): Boolean = oldItem.id == newItem.id
 
                 override fun areContentsTheSame(
                     oldItem: SampleAdapterItem,
                     newItem: SampleAdapterItem
-                ): Boolean {
-                    TODO("Not yet implemented")
+                ): Boolean = oldItem == newItem
+
+                override fun getChangePayload(
+                    oldItem: SampleAdapterItem,
+                    newItem: SampleAdapterItem
+                ): Any? {
+                    if (oldItem is SampleAdapterItem.Text
+                        && newItem is SampleAdapterItem.Text
+                        && oldItem.copy(text = newItem.text) == newItem
+                    ) {
+                        return PAYLOAD_TEXT_CHANGED
+                    } else if (oldItem is SampleAdapterItem.Image
+                        && newItem is SampleAdapterItem.Image
+                        && oldItem.copy(imageUrl = newItem.imageUrl) == newItem
+                    ) {
+                        return PAYLOAD_IMAGE_CHANGED
+                    }
+                    return super.getChangePayload(oldItem, newItem)
                 }
             }
         ).build()
